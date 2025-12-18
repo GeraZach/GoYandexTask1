@@ -38,6 +38,7 @@ func monitor() {
 		// Проверяем статус
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
+			fmt.Printf("Status Code: %d\n", resp.StatusCode)
 			handleError(&errorCount)
 			continue
 		}
@@ -55,6 +56,8 @@ func monitor() {
 
 		// Парсим данные
 		parts := strings.Split(data, ",")
+		fmt.Printf("Parts from response: %d\n", parts)
+
 		if len(parts) != 6 {
 			handleError(&errorCount)
 			continue
