@@ -1,95 +1,125 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func main() {
-	errors := 0
+const (
+	serverURL      = "http://srv.msk01.gigacorp.local/_stats"
+	pollInterval   = 30 * time.Second
+	errorThreshold = 3
+)
 
-	time.Sleep(30 * time.Second)
+func main() {
+	monitor()
+}
+
+func monitor() {
+	errorCount := 0
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	for {
-		resp, err := http.Get("http://srv.msk01.gigacorp.local/_stats")
+		time.Sleep(pollInterval)
+
+		// Получаем статистику
+		resp, err := client.Get(serverURL)
 		if err != nil {
-			errors++
-			if errors >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errors = 0
-			}
-			time.Sleep(30 * time.Second)
+			handleError(&errorCount)
 			continue
 		}
 
-		if resp.StatusCode != 200 {
+		// Проверяем статус
+		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
-			errors++
-			if errors >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errors = 0
-			}
-			time.Sleep(30 * time.Second)
+			handleError(&errorCount)
 			continue
 		}
 
-		data, err := io.ReadAll(resp.Body)
+		// Читаем данные
+		scanner := bufio.NewScanner(resp.Body)
+		if !scanner.Scan() {
+			resp.Body.Close()
+			handleError(&errorCount)
+			continue
+		}
+
+		data := strings.TrimSpace(scanner.Text())
 		resp.Body.Close()
 
-		if err != nil {
-			errors++
-			if errors >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errors = 0
-			}
-			time.Sleep(30 * time.Second)
-			continue
-		}
-
-		errors = 0
-
-		parts := strings.Split(strings.TrimSpace(string(data)), ",")
+		// Парсим данные
+		parts := strings.Split(data, ",")
 		if len(parts) != 6 {
-			time.Sleep(30 * time.Second)
+			handleError(&errorCount)
 			continue
 		}
 
-		load, _ := strconv.ParseFloat(parts[0], 64)
-		totalMem, _ := strconv.ParseUint(parts[1], 10, 64)
-		usedMem, _ := strconv.ParseUint(parts[2], 10, 64)
-		totalDisk, _ := strconv.ParseUint(parts[3], 10, 64)
-		usedDisk, _ := strconv.ParseUint(parts[4], 10, 64)
-		netUsage, _ := strconv.ParseUint(parts[5], 10, 64)
+		// Сбрасываем счетчик ошибок
+		errorCount = 0
 
-		// Проверки
-		if load > 30 {
-			fmt.Printf("Load Average is too high: %.2f\n", load)
+		// Парсим все значения
+		load, err1 := strconv.ParseFloat(parts[0], 64)
+		totalMem, err2 := strconv.ParseUint(parts[1], 10, 64)
+		usedMem, err3 := strconv.ParseUint(parts[2], 10, 64)
+		totalDisk, err4 := strconv.ParseUint(parts[3], 10, 64)
+		usedDisk, err5 := strconv.ParseUint(parts[4], 10, 64)
+		netUsage, err6 := strconv.ParseUint(parts[5], 10, 64)
+
+		// Если ошибка парсинга, пропускаем
+		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil {
+			continue
 		}
 
-		if totalMem > 0 {
-			if usedMem*10000/totalMem > 8000 { // > 80%
-				p := float64(usedMem) / float64(totalMem) * 100
-				fmt.Printf("Memory usage too high: %.1f%%\n", p)
-			}
-		}
+		// Проверяем пороги
+		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, netUsage)
+	}
+}
 
-		if totalDisk > 0 {
-			if usedDisk*10000/totalDisk > 9000 { // > 90%
-				free := float64(totalDisk-usedDisk) / 1048576
-				fmt.Printf("Free disk space is too low: %.1f Mb left\n", free)
-			}
-		}
+func handleError(errorCount *int) {
+	*errorCount++
+	if *errorCount >= errorThreshold {
+		fmt.Println("Unable to fetch server statistic")
+		*errorCount = 0 // Сбрасываем после вывода
+	}
+}
 
-		const bw uint64 = 125000000
-		if bw > 0 && netUsage*10000/bw > 9000 { // > 90%
-			free := float64(bw-netUsage) * 8 / 1048576
-			fmt.Printf("Network bandwidth usage high: %.1f Mbit/s available\n", free)
-		}
+func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, netUsage uint64) {
+	// 1. Load Average (> 30)
+	if load > 30 {
+		fmt.Printf("Load Average is too high: %.2f\n", load)
+	}
 
-		time.Sleep(30 * time.Second)
+	// 2. Memory usage (> 80%)
+	if totalMem > 0 {
+		memoryUsage := float64(usedMem) / float64(totalMem)
+		if memoryUsage > 0.8 {
+			fmt.Printf("Memory usage too high: %.1f%%\n", memoryUsage*100)
+		}
+	}
+
+	// 3. Disk space (> 90%)
+	if totalDisk > 0 {
+		diskUsage := float64(usedDisk) / float64(totalDisk)
+		if diskUsage > 0.9 {
+			freeMB := float64(totalDisk-usedDisk) / (1024 * 1024)
+			fmt.Printf("Free disk space is too low: %.1f Mb left\n", freeMB)
+		}
+	}
+
+	// 4. Network bandwidth (> 90%)
+	// Предполагаем 1 Гбит/с = 125000000 байт/с
+	const networkBandwidth uint64 = 125000000
+	if networkBandwidth > 0 {
+		networkUsage := float64(netUsage) / float64(networkBandwidth)
+		if networkUsage > 0.9 {
+			freeMbits := float64(networkBandwidth-netUsage) * 8 / (1024 * 1024)
+			fmt.Printf("Network bandwidth usage high: %.1f Mbit/s available\n", freeMbits)
+		}
 	}
 }
