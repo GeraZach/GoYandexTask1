@@ -30,7 +30,7 @@ func monitor() {
 	for {
 		time.Sleep(pollInterval)
 
-		reqCount += 1
+		//reqCount += 1
 		fmt.Println(reqCount)
 
 		// Получаем статистику
