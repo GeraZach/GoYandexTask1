@@ -25,7 +25,7 @@ func monitor() {
 		Timeout: 10 * time.Second,
 	}
 
-	reqCount := 0
+	//reqCount := 0
 
 	for {
 		time.Sleep(pollInterval)
