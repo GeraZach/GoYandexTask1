@@ -9,69 +9,61 @@ import (
 	"time"
 )
 
+const (
+	serverURL      = "http://srv.msk01.gigacorp.local/_stats"
+	pollInterval   = 30 * time.Second
+	errorThreshold = 3
+)
+
 func main() {
 	monitor()
 }
 
 func monitor() {
-	const url = "http://srv.msk01.gigacorp.local/_stats"
-	const interval = 30 * time.Second
 	errorCount := 0
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	for {
-		time.Sleep(interval)
+		time.Sleep(pollInterval)
 
-		// Получение данных
-		resp, err := http.Get(url)
+		// Получаем статистику
+		resp, err := client.Get(serverURL)
 		if err != nil {
-			errorCount++
-			if errorCount >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errorCount = 0
-			}
+			handleError(&errorCount)
 			continue
 		}
 
-		if resp.StatusCode != 200 {
-			errorCount++
+		// Проверяем статус
+		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
-			if errorCount >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errorCount = 0
-			}
+			handleError(&errorCount)
 			continue
 		}
 
-		// Чтение данных
+		// Читаем данные
 		scanner := bufio.NewScanner(resp.Body)
 		if !scanner.Scan() {
-			errorCount++
 			resp.Body.Close()
-			if errorCount >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errorCount = 0
-			}
+			handleError(&errorCount)
 			continue
 		}
 
-		data := scanner.Text()
+		data := strings.TrimSpace(scanner.Text())
 		resp.Body.Close()
 
-		// Парсинг данных
-		parts := strings.Split(strings.TrimSpace(data), ",")
+		// Парсим данные
+		parts := strings.Split(data, ",")
 		if len(parts) != 6 {
-			errorCount++
-			if errorCount >= 3 {
-				fmt.Println("Unable to fetch server statistic")
-				errorCount = 0
-			}
+			handleError(&errorCount)
 			continue
 		}
 
-		// Сброс счетчика ошибок
+		// Сбрасываем счетчик ошибок
 		errorCount = 0
 
-		// Парсинг значений
+		// Парсим все значения
 		load, err1 := strconv.ParseFloat(parts[0], 64)
 		totalMem, err2 := strconv.ParseUint(parts[1], 10, 64)
 		usedMem, err3 := strconv.ParseUint(parts[2], 10, 64)
@@ -79,33 +71,54 @@ func monitor() {
 		usedDisk, err5 := strconv.ParseUint(parts[4], 10, 64)
 		netUsage, err6 := strconv.ParseUint(parts[5], 10, 64)
 
+		// Если ошибка парсинга, пропускаем
 		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil {
 			continue
 		}
 
-		// Проверка порогов
+		// Проверяем пороги
+		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, netUsage)
+	}
+}
 
-		// 1. Load Average
-		if load > 30 {
-			fmt.Printf("Load Average is too high: %.2f\n", load)
+func handleError(errorCount *int) {
+	*errorCount++
+	if *errorCount >= errorThreshold {
+		fmt.Println("Unable to fetch server statistic")
+		*errorCount = 0 // Сбрасываем после вывода
+	}
+}
+
+func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, netUsage uint64) {
+	// 1. Load Average (> 30)
+	if load > 30 {
+		fmt.Printf("Load Average is too high: %.2f\n", load)
+	}
+
+	// 2. Memory usage (> 80%)
+	if totalMem > 0 {
+		memoryUsage := float64(usedMem) / float64(totalMem)
+		if memoryUsage > 0.8 {
+			fmt.Printf("Memory usage too high: %.1f%%\n", memoryUsage*100)
 		}
+	}
 
-		// 2. Memory usage
-		if totalMem > 0 && float64(usedMem)/float64(totalMem) > 0.8 {
-			usagePercent := float64(usedMem) / float64(totalMem) * 100
-			fmt.Printf("Memory usage too high: %.1f%%\n", usagePercent)
-		}
-
-		// 3. Disk space
-		if totalDisk > 0 && float64(usedDisk)/float64(totalDisk) > 0.9 {
+	// 3. Disk space (> 90%)
+	if totalDisk > 0 {
+		diskUsage := float64(usedDisk) / float64(totalDisk)
+		if diskUsage > 0.9 {
 			freeMB := float64(totalDisk-usedDisk) / (1024 * 1024)
 			fmt.Printf("Free disk space is too low: %.1f Mb left\n", freeMB)
 		}
+	}
 
-		// 4. Network bandwidth (предполагаем 1 Гбит/с = 125000000 байт/с)
-		const netBandwidth uint64 = 125000000
-		if netBandwidth > 0 && float64(netUsage)/float64(netBandwidth) > 0.9 {
-			freeMbits := float64(netBandwidth-netUsage) * 8 / (1024 * 1024)
+	// 4. Network bandwidth (> 90%)
+	// Предполагаем 1 Гбит/с = 125000000 байт/с
+	const networkBandwidth uint64 = 125000000
+	if networkBandwidth > 0 {
+		networkUsage := float64(netUsage) / float64(networkBandwidth)
+		if networkUsage > 0.9 {
+			freeMbits := float64(networkBandwidth-netUsage) * 8 / (1024 * 1024)
 			fmt.Printf("Network bandwidth usage high: %.1f Mbit/s available\n", freeMbits)
 		}
 	}
