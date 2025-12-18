@@ -103,7 +103,7 @@ func handleError(errorCount *int) {
 func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, totalNet, netUsage uint64) {
 	// 1. Load Average (> 30)
 	if load > 30 {
-		fmt.Printf("Load Average is too high: %.2b\n", int64(load))
+		fmt.Printf("Load Average is too high: %.0f\n", load)
 	}
 
 	// 2. Memory usage (> 80%)
@@ -119,7 +119,7 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 		diskUsage := float64(usedDisk) / float64(totalDisk)
 		if diskUsage > 0.9 {
 			freeMB := float64(totalDisk-usedDisk) / (1024 * 1024)
-			fmt.Printf("Free disk space is too low: %.1v Mb left\n", int64(freeMB))
+			fmt.Printf("Free disk space is too low: %.0f Mb left\n", freeMB)
 		}
 	}
 
@@ -129,8 +129,8 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 	if totalNet > 0 {
 		networkUsage := float64(netUsage) / float64(totalNet)
 		if networkUsage > 0.9 {
-			freeMbits := int64(totalNet-netUsage) / (1024 * 1024)
-			fmt.Printf("Network bandwidth usage high: %.1v Mbit/s available\n", freeMbits)
+			freeMbits := float64(totalNet-netUsage) / (1024 * 1024)
+			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", freeMbits)
 		}
 	}
 }
