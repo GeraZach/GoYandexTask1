@@ -32,6 +32,7 @@ func monitor() {
 		resp, err := client.Get(serverURL)
 		if err != nil {
 			handleError(&errorCount)
+			fmt.Printf("err != nil error")
 			continue
 		}
 
@@ -40,6 +41,7 @@ func monitor() {
 			resp.Body.Close()
 			fmt.Printf("Status: %s\n", http.StatusText(resp.StatusCode))
 			handleError(&errorCount)
+			fmt.Printf("Resp status code error")
 			continue
 		}
 
@@ -48,6 +50,7 @@ func monitor() {
 		if !scanner.Scan() {
 			resp.Body.Close()
 			handleError(&errorCount)
+			fmt.Printf("Scanner scan error")
 			continue
 		}
 
@@ -60,11 +63,13 @@ func monitor() {
 
 		if len(parts) != 6 {
 			handleError(&errorCount)
+			fmt.Printf("len(parts) error")
 			continue
 		}
 
 		// Сбрасываем счетчик ошибок
 		errorCount = 0
+		fmt.Printf("Erased error count")
 
 		// Парсим все значения
 		load, err1 := strconv.ParseFloat(parts[0], 64)
@@ -78,7 +83,7 @@ func monitor() {
 		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil {
 			continue
 		}
-
+		fmt.Printf("Reached check thresholds")
 		// Проверяем пороги
 		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, netUsage)
 	}
@@ -86,6 +91,7 @@ func monitor() {
 
 func handleError(errorCount *int) {
 	*errorCount++
+	fmt.Printf("Error count: %d\n", errorCount)
 	if *errorCount >= errorThreshold {
 		fmt.Println("Unable to fetch server statistic")
 		*errorCount = 0 // Сбрасываем после вывода
