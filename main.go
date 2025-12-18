@@ -54,6 +54,7 @@ func monitor() {
 			continue
 		}
 
+		// ЗДЕСЬ ОШИБКА
 		data := strings.TrimSpace(scanner.Text())
 		resp.Body.Close()
 
@@ -61,7 +62,7 @@ func monitor() {
 		parts := strings.Split(data, ",")
 		fmt.Printf("Parts from response: %v\n", parts)
 
-		if len(parts) != 6 {
+		if len(parts) != 7 {
 			handleError(&errorCount)
 			fmt.Printf("len(parts) error")
 			continue
@@ -77,15 +78,16 @@ func monitor() {
 		usedMem, err3 := strconv.ParseUint(parts[2], 10, 64)
 		totalDisk, err4 := strconv.ParseUint(parts[3], 10, 64)
 		usedDisk, err5 := strconv.ParseUint(parts[4], 10, 64)
-		netUsage, err6 := strconv.ParseUint(parts[5], 10, 64)
+		totalNet, err6 := strconv.ParseUint(parts[5], 10, 64)
+		netUsage, err7 := strconv.ParseUint(parts[6], 10, 64)
 
 		// Если ошибка парсинга, пропускаем
-		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil {
+		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil {
 			continue
 		}
 		fmt.Printf("Reached check thresholds")
 		// Проверяем пороги
-		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, netUsage)
+		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, totalNet, netUsage)
 	}
 }
 
@@ -98,7 +100,7 @@ func handleError(errorCount *int) {
 	}
 }
 
-func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, netUsage uint64) {
+func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, totalNet, netUsage uint64) {
 	// 1. Load Average (> 30)
 	if load > 30 {
 		fmt.Printf("Load Average is too high: %.2f\n", load)
@@ -123,11 +125,11 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, netUs
 
 	// 4. Network bandwidth (> 90%)
 	// Предполагаем 1 Гбит/с = 125000000 байт/с
-	const networkBandwidth uint64 = 125000000
-	if networkBandwidth > 0 {
-		networkUsage := float64(netUsage) / float64(networkBandwidth)
+	//const networkBandwidth uint64 = 125000000
+	if totalNet > 0 {
+		networkUsage := float64(netUsage) / float64(totalNet)
 		if networkUsage > 0.9 {
-			freeMbits := float64(networkBandwidth-netUsage) * 8 / (1024 * 1024)
+			freeMbits := float64(totalNet-netUsage) * 8 / (1024 * 1024)
 			fmt.Printf("Network bandwidth usage high: %.1f Mbit/s available\n", freeMbits)
 		}
 	}
