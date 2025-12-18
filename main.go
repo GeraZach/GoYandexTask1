@@ -118,7 +118,7 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 	if totalDisk > 0 {
 		diskUsage := float64(usedDisk) / float64(totalDisk)
 		if diskUsage > 0.9 {
-			freeMB := (totalDisk - usedDisk) / (1024 * 1024)
+			freeMB := (totalDisk - usedDisk) / (1000 * 1000)
 			fmt.Printf("Free disk space is too low: %.0v Mb left\n", int64(freeMB))
 		}
 	}
