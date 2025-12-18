@@ -32,7 +32,7 @@ func monitor() {
 		resp, err := client.Get(serverURL)
 		if err != nil {
 			handleError(&errorCount)
-			fmt.Printf("err != nil error")
+			//fmt.Printf("err != nil error")
 			continue
 		}
 
@@ -41,7 +41,7 @@ func monitor() {
 			resp.Body.Close()
 			fmt.Printf("Status: %s\n", http.StatusText(resp.StatusCode))
 			handleError(&errorCount)
-			fmt.Printf("Resp status code error")
+			//fmt.Printf("Resp status code error")
 			continue
 		}
 
@@ -50,7 +50,7 @@ func monitor() {
 		if !scanner.Scan() {
 			resp.Body.Close()
 			handleError(&errorCount)
-			fmt.Printf("Scanner scan error")
+			//fmt.Printf("Scanner scan error")
 			continue
 		}
 
@@ -60,17 +60,17 @@ func monitor() {
 
 		// Парсим данные
 		parts := strings.Split(data, ",")
-		fmt.Printf("Parts from response: %v\n", parts)
+		//fmt.Printf("Parts from response: %v\n", parts)
 
 		if len(parts) != 7 {
 			handleError(&errorCount)
-			fmt.Printf("len(parts) error")
+			//fmt.Printf("len(parts) error")
 			continue
 		}
 
 		// Сбрасываем счетчик ошибок
 		errorCount = 0
-		fmt.Printf("Erased error count")
+		//fmt.Printf("Erased error count")
 
 		// Парсим все значения
 		load, err1 := strconv.ParseFloat(parts[0], 64)
@@ -85,7 +85,7 @@ func monitor() {
 		if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil {
 			continue
 		}
-		fmt.Printf("Reached check thresholds")
+		//fmt.Printf("Reached check thresholds")
 		// Проверяем пороги
 		checkThresholds(load, totalMem, usedMem, totalDisk, usedDisk, totalNet, netUsage)
 	}
@@ -93,7 +93,7 @@ func monitor() {
 
 func handleError(errorCount *int) {
 	*errorCount++
-	fmt.Printf("Error count: %d\n", errorCount)
+	//fmt.Printf("Error count: %d\n", errorCount)
 	if *errorCount >= errorThreshold {
 		fmt.Println("Unable to fetch server statistic")
 		*errorCount = 0 // Сбрасываем после вывода
@@ -110,7 +110,7 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 	if totalMem > 0 {
 		memoryUsage := float64(usedMem) / float64(totalMem)
 		if memoryUsage > 0.8 {
-			fmt.Printf("Memory usage too high: %.1f%%\n", memoryUsage*100)
+			fmt.Printf("Memory usage too high: %.1v%%\n", int64(memoryUsage*100))
 		}
 	}
 
@@ -119,7 +119,7 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 		diskUsage := float64(usedDisk) / float64(totalDisk)
 		if diskUsage > 0.9 {
 			freeMB := float64(totalDisk-usedDisk) / (1024 * 1024)
-			fmt.Printf("Free disk space is too low: %.1f Mb left\n", freeMB)
+			fmt.Printf("Free disk space is too low: %.1v Mb left\n", int64(freeMB))
 		}
 	}
 
@@ -129,8 +129,8 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 	if totalNet > 0 {
 		networkUsage := float64(netUsage) / float64(totalNet)
 		if networkUsage > 0.9 {
-			freeMbits := float64(totalNet-netUsage) * 8 / (1024 * 1024)
-			fmt.Printf("Network bandwidth usage high: %.1f Mbit/s available\n", freeMbits)
+			freeMbits := int64(float64(totalNet-netUsage) / (1024 * 1024))
+			fmt.Printf("Network bandwidth usage high: %.1v Mbit/s available\n", freeMbits)
 		}
 	}
 }
