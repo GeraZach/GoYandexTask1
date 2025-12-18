@@ -31,7 +31,7 @@ func monitor() {
 		time.Sleep(pollInterval)
 
 		//reqCount += 1
-		fmt.Println(reqCount)
+		//fmt.Println(reqCount)
 
 		// Получаем статистику
 		resp, err := client.Get(serverURL)
