@@ -129,7 +129,7 @@ func checkThresholds(load float64, totalMem, usedMem, totalDisk, usedDisk, total
 	if totalNet > 0 {
 		networkUsage := float64(netUsage) / float64(totalNet)
 		if networkUsage > 0.9 {
-			freeMbits := float64(totalNet-netUsage) * 8 / (1024 * 1024)
+			freeMbits := float64(totalNet-netUsage) / (1024 * 1024)
 			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", freeMbits)
 		}
 	}
